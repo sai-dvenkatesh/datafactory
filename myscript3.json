@@ -1,0 +1,246 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "dataFactoryName": {
+            "type": "string",
+            "defaultValue": "xxx"
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "East US"
+        },
+        "apiVersion": {
+            "type": "string",
+            "defaultValue": "2018-06-01"
+        }
+    },
+    "variables": {
+        "azureCosmosLinkedServiceName": "azurecosmosdblinkedservice",
+        "azureStorageLinkedServiceName": "azurestoragelinkedservice"
+    },
+    "resources": [
+        {
+            "name": "[concat(parameters('dataFactoryName'), '/azurecosmosdblinkedservice')]",
+            "type": "Microsoft.DataFactory/factories/linkedservices",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "type": "CosmosDb",
+                "typeProperties": {
+                    "connectionString": {
+                        "type": "SecureString",
+                        "value": "xxxx"
+                    }
+                }
+            }
+        },
+        {
+            "name": "[concat(parameters('dataFactoryName'), '/azurestoragelinkedservice')]",
+            "type": "Microsoft.DataFactory/factories/linkedservices",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "type": "AzureStorage",
+                "typeProperties": {
+                    "connectionString": {
+                        "type": "SecureString",
+                        "value": "xxxx"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.DataFactory/factories/datasets",
+            "name": "[concat(parameters('dataFactoryName'), '/src_cosmosdb')]",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "linkedServiceName": {
+                    "referenceName": "[variables('azureCosmosLinkedServiceName')]",
+                    "type": "LinkedServiceReference"
+                },
+                "type": "DocumentDbCollection",
+                "parameters": {
+                    "cw_collectionName": {
+                        "type": "String"
+                    }
+                },
+                "typeProperties": {
+                    "collectionName": "@dataset().cw_collectionName"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.DataFactory/factories/datasets",
+            "name": "[concat(parameters('dataFactoryName'), '/dest_blob')]",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "linkedServiceName": {
+                    "referenceName": "[variables('azureStorageLinkedServiceName')]",
+                    "type": "LinkedServiceReference"
+                },
+                "parameters": {
+                    "cw_fileName": {
+                        "type": "String"
+                    }
+                },
+                "annotations": [],
+                "type": "AzureBlob",
+                "typeProperties": {
+                    "format": {
+                        "type": "JsonFormat",
+                        "filePattern": "arrayOfObjects"
+                    },
+                    "fileName": "@concat(utcnow(),'.json')",
+                    "folderPath": "cosmosdbbackuptest/hourlybackups"
+                }
+            }
+        },
+        {
+            "name": "[concat(parameters('dataFactoryName'), '/copytoblob')]",
+            "type": "Microsoft.DataFactory/factories/pipelines",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "description": "demo to backup cosmosdb",
+                "activities": [
+                    {
+                        "name": "ForEach_vup",
+                        "type": "ForEach",
+                        "dependsOn": [],
+                        "userProperties": [],
+                        "typeProperties": {
+                            "items": {
+                                "value": "@pipeline().parameters.cw_items",
+                                "type": "Expression"
+                            },
+                            "activities": [
+                                {
+                                    "name": "Copy_vup",
+                                    "type": "Copy",
+                                    "dependsOn": [],
+                                    "policy": {
+                                        "timeout": "7.00:00:00",
+                                        "retry": 0,
+                                        "retryIntervalInSeconds": 30,
+                                        "secureOutput": false,
+                                        "secureInput": false
+                                    },
+                                    "userProperties": [
+                                        {
+                                            "name": "Source",
+                                            "value": "@{item().source.collectionName}"
+                                        },
+                                        {
+                                            "name": "Destination",
+                                            "value": "hourlybackups/@{item().destination.fileName}"
+                                        }
+                                    ],
+                                    "typeProperties": {
+                                        "source": {
+                                            "type": "DocumentDbCollectionSource",
+                                            "nestingSeparator": "."
+                                        },
+                                        "sink": {
+                                            "type": "BlobSink"
+                                        },
+                                        "enableStaging": false
+                                    },
+                                    "inputs": [
+                                        {
+                                            "referenceName": "src_cosmosdb",
+                                            "type": "DatasetReference",
+                                            "parameters": {
+                                                "cw_collectionName": "@item().source.collectionName"
+                                            }
+                                        }
+                                    ],
+                                    "outputs": [
+                                        {
+                                            "referenceName": "dest_blob",
+                                            "type": "DatasetReference",
+                                            "parameters": {
+                                                "cw_fileName": "@item().destination.fileName"
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                ],
+                "parameters": {
+                    "cw_items": {
+                        "type": "Array",
+                        "defaultValue": [
+                            {
+                                "source": {
+                                    "collectionName": "xxx"
+                                },
+                                "destination": {
+                                    "fileName": "xxx.json"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "collectionName": "xxx"
+                                },
+                                "destination": {
+                                    "fileName": "xxx.json"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "collectionName": "xxx"
+                                },
+                                "destination": {
+                                    "fileName": "xxx.json"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "collectionName": "xxx"
+                                },
+                                "destination": {
+                                    "fileName": "xxx.json"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "collectionName": "xxx"
+                                },
+                                "destination": {
+                                    "fileName": "xxx.json"
+                                }
+                            }
+                        ]
+                    }
+                },
+                "annotations": []
+            }
+        },
+        {
+            "apiVersion": "2018-06-01",
+            "type": "Microsoft.DataFactory/factories/triggers",
+            "name": "[concat(parameters('dataFactoryName'), '/hourlybackups')]",
+            "properties": {
+                "runtimeState": "Started",
+                "pipelines": [
+                    {
+                        "pipelineReference": {
+                            "referenceName": "copytoblob",
+                            "type": "PipelineReference"
+                        },
+                        "parameters": {}
+                    }
+                ],
+                "type": "ScheduleTrigger",
+                "typeProperties": {
+                    "recurrence": {
+                        "frequency": "Hour",
+                        "interval": 1,
+                        "startTime": "2019-08-27T12:34:00.000Z",
+                        "timeZone": "UTC"
+                    }
+                }
+            }
+        }
+    ]
+}

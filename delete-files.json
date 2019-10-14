@@ -1,0 +1,159 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "datafactoryName": {
+            "type": "string",
+            "metadata": "Data Factory Name"
+        },
+        "FolderPath": {
+            "type": "string"
+        },
+        "FolderPathToLog": {
+            "type": "string"
+        },
+        "Backups_GPMasters_Dev_Weekly": {
+            "type": "string"
+        },
+        "pipelineName": {
+            "type": "string"
+        },
+        "triggerWeekly": {
+            "type": "string"
+        },
+        "StorageAccount": {
+            "type": "string"
+        }
+    },
+    "resources": [
+        {
+            "name": "[concat(parameters('dataFactoryName'),'/', parameters('pipelineName'))]",
+            "type": "Microsoft.DataFactory/factories/pipelines",
+            "properties": {
+                "activities": [
+                    {
+                        "name": "DeleteFiles",
+                        "type": "Delete",
+                        "dependsOn": [
+                        ],
+                        "policy": {
+                            "timeout": "7.00:00:00",
+                            "retry": 0,
+                            "retryIntervalInSeconds": 30,
+                            "secureOutput": false,
+                            "secureInput": false
+                        },
+                        "userProperties": [
+                        ],
+                        "typeProperties": {
+                            "dataset": {
+                                "referenceName": "",
+                                "type": "DatasetReference",
+                                "parameters": {
+                                    "FolderPath": {
+                                        "value": "@pipeline().parameters.FolderPath",
+                                        "type": "Expression"
+                                    }
+                                }
+                            },
+                            "logStorageSettings": {
+                                "linkedServiceName": {
+                                    "referenceName": "[parameters('StorageAccount')]",
+                                    "type": "LinkedServiceReference"
+                                },
+                                "path": "[parameters('FolderPathToLog')]"
+                            },
+                            "enableLogging": true,
+                            "recursive": true
+                        }
+                    }
+                ],
+                "parameters": {
+                    "FolderPath": {
+                        "type": "String"
+                    }
+                },
+                "annotations": [
+                ]
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.DataFactory/factories', parameters('dataFactoryName'))]",
+                "[resourceID('Microsoft.DataFactory/factories/datasets', parameters('Backups_GPMasters_Weekly'))]",
+                "[parameters('pipelineName')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('dataFactoryName'),'/', parameters('Backups_GPMasters_Weekly'))]",
+            "type": "Microsoft.DataFactory/factories/datasets",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "description": "Connect to your storage store to delete files.",
+                "linkedServiceName": {
+                    "referenceName": "[parameters('StorageAccount')]",
+                    "type": "LinkedServiceReference"
+                },
+                "parameters": {
+                    "FolderPath": {
+                        "type": "String"
+                    }
+                },
+                "annotations": [
+                ],
+                "type": "AzureBlob",
+                "typeProperties": {
+                    "fileName": "*",
+                    "folderPath": {
+                        "value": "@dataset().FolderPath",
+                        "type": "Expression"
+                    },
+                    "modifiedDatetimeEnd": {
+                        "value": "@adddays(pipeline().TriggerTime, -14)",
+                        "type": "Expression"
+                    }
+                }
+            }
+        },
+        {
+            "name": "[concat(parameters('dataFactoryName'),'/', parameters('triggerWeekly'))]",
+            "apiVersion": "2018-06-01",
+            "type": "Microsoft.DataFactory/factories/triggers",
+            "properties": {
+                "annotations": [
+                ],
+                "runtimeState": "Started",
+                "pipelines": [
+                    {
+                        "pipelineReference": {
+                            "referenceName": "[parameters('pipeLineName')]",
+                            "type": "PipelineReference"
+                        }
+                    }
+                ],
+                "type": "ScheduleTrigger",
+                "typeProperties": {
+                    "recurrence": {
+                        "frequency": "Week",
+                        "interval": 1,
+                        "startTime": "2019-09-25T12:46:00.000Z",
+                        "timeZone": "UTC",
+                        "schedule": {
+                            "minutes": [
+                                30
+                            ],
+                            "hours": [
+                                12
+                            ],
+                            "weekDays": [
+                                "Monday"
+                            ]
+                        }
+                    }
+                }
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.DataFactory/factories', parameters('dataFactoryName'))]",
+                "[parameters('pipelineName')]"
+            ]
+        }
+    ]
+}
